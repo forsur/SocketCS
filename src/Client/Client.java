@@ -5,6 +5,7 @@ import java.net.*;
 import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Client {
     private Socket socket;
@@ -12,14 +13,17 @@ public class Client {
     private DataOutputStream output;
     private boolean isConnected = false;
     private BlockingQueue<byte[]> messageQueue = new LinkedBlockingQueue<>();
+    private AtomicInteger responseCount = new AtomicInteger(0);
 
     public static void main(String[] args) throws InterruptedException {
         Client client = new Client();
         client.start();
     }
 
-    private void connect(String ip, int port) throws IOException {
-        socket = new Socket(ip, port);
+    private void connect(String ip, int port, int localPort) throws IOException {
+        socket = new Socket();
+        socket.bind(new InetSocketAddress(localPort));
+        socket.connect(new InetSocketAddress(ip, port));
         input = new DataInputStream(socket.getInputStream());
         output = new DataOutputStream(socket.getOutputStream());
         isConnected = true;
@@ -55,7 +59,10 @@ public class Client {
                             System.out.print("请输入服务器端口：");
                             int port = scanner.nextInt();
                             scanner.nextLine(); // 清空换行符
-                            connect(ip, port);
+                            System.out.print("请输入本地端口：");
+                            int localPort = scanner.nextInt();
+                            scanner.nextLine(); // 清空换行符
+                            connect(ip, port, localPort);
                         } else {
                             System.out.println("已连接服务器，请勿重复连接！");
                         }
@@ -64,7 +71,12 @@ public class Client {
                         disconnect();
                         break;
                     case 3: // 获取时间
-                        if (isConnected) sendRequest(0x01, new byte[0]);
+                        if (isConnected) {
+                            responseCount.set(0); // 重置计数器
+                            for (int i = 0; i < 100; i++) {
+                                sendRequest(0x01, new byte[0]);
+                            }
+                        }
                         break;
                     case 4: // 获取名字
                         if (isConnected) sendRequest(0x02, new byte[0]);
@@ -185,6 +197,10 @@ public class Client {
             switch (type) {
                 case 0x01:
                     System.out.println("时间：" + "\n" + new String(payload).trim());
+                    int count = responseCount.incrementAndGet();
+                    if (count == 100) {
+                        System.out.println("已收到100个响应");
+                    }
                     break;
                 case 0x02:
                     System.out.println("名字：" + "\n" + new String(payload).trim());
