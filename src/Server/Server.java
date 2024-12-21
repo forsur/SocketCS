@@ -32,6 +32,7 @@ public class Server {
                 // 为连接的客户端新创建一个线程，传入 Runnable 任务
                 Thread clientThread = new Thread(handler);
                 clientThread.start();
+                System.out.println("一个用户已连接，端口号：" + clientSocket.getPort());
             }
         } catch (RuntimeException e) {
             throw new RuntimeException(e);
@@ -67,6 +68,7 @@ public class Server {
         private byte[] assemblePacket(int type, byte[] data) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(0x02); // 起始标志
+            baos.write(0x01); // 标记请求 / 响应
             baos.write(type);
             baos.write(data.length >> 8);
             baos.write(data.length & 0xFF);
@@ -88,6 +90,8 @@ public class Server {
             if (input.readByte() != 0x02) {
                 return null;
             }
+            // 读取请求
+            int auth = input.readByte();
             // 读取 type 字段
             int type = input.readByte();
             // 读取 payload 的 length 字段
@@ -178,7 +182,7 @@ public class Server {
 
                     // 检查端口号是否有效
                     if (!clients.containsKey(port)) {
-                        sendResponse(0x04, "目标客户端不存在".getBytes());
+                        sendResponse(0x00, "目标客户端不存在".getBytes());
                     } else {
                         // 获取目标 ClientHandler
                         ClientHandler targetHandler = clients.get(port);

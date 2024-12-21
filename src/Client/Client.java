@@ -111,6 +111,7 @@ public class Client {
     private void sendRequest(int type, byte[] data) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         baos.write(0x02); // 起始标志
+        baos.write(0x00); // 请求
         baos.write(type);
         baos.write(data.length >> 8);
         baos.write(data.length & 0xFF);
@@ -146,8 +147,8 @@ public class Client {
                     if (length > 0) {
                         // 取出起始和结尾字符
                         if (buffer[0] == 0x02 && buffer[length - 1] == 0x03) {
-                            byte[] message = new byte[length - 2];
-                            System.arraycopy(buffer, 1, message, 0, length - 2);
+                            byte[] message = new byte[length - 3];
+                            System.arraycopy(buffer, 2, message, 0, length - 3);
                             messageQueue.put(message); // Add message to queue
                         }
                     }
@@ -201,6 +202,10 @@ public class Client {
                     } else {
                         System.out.println("\n消息来自端口 " + senderPort + "：" + "\n" + messageContent);
                     }
+                    break;
+                case 0x00:
+                    String errorContent = new String(payload, 0, payload.length - 2).trim();
+                    System.out.println(errorContent);
                     break;
                 default:
                     System.out.println("未知消息类型：" + type);
